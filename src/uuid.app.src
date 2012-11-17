@@ -1,0 +1,10 @@
+%% -*- mode: erlang; indent-tabs-mode: nil -*-
+{application,
+ uuid,
+ [{description, "RFC-4122 UUID"},
+  {vsn, "1.0"},
+  {registered, []},
+  {applications, [kernel, stdlib, crypto]},
+  {mod, {uuid_app, []}},
+  {env, []}
+ ]}.
