@@ -1,7 +1,7 @@
 uuid
 ====
 
-This module provides a mechanism for creating UUIDs as defined by
+This Erlang module provides a mechanism for creating UUIDs as defined by
 RFC-4122, ITU-T X.667 (09/2004), and ISO/IEC 9834-8:2005. Additional
 functions are provided for comparing names against those UUIDs derived
 from them, and for splitting UUIDs into their format-dependent
@@ -13,12 +13,16 @@ Each UUID belongs to a variant, distinguished by the most significant
 bits in the byte 9 of the UUID (counting from 1). Not every pattern of
 128 bits is a valid UUID.
 
+A sample UUID can be expressed as either
+urn:uuid:f81d4fae-7dec-11d0-a765-00a0c91e6bf6 or (using an
+ASN.1 OID) 2.25.329800735698586629295641978511506172918
+
 Variant 0
 ---------
 
 Variant 0, represented by topmost bit of byte 9 having value 0, was
 used for NCS UUIDs, originally defined by Apollo Computer. These UUIDs
-can be generated, read, and understood by this module, in both
+can be generated, read, and understood by this Erlang module, in both
 original and new presentation formats, but they are no longer used in
 practice.
 
@@ -41,7 +45,7 @@ Variant 1, represented by the topmost two bits of byte 9 having values
 versions. The topmost four bits of byte 7 specify the version.
 
 All five versions can be generated, read, and understood by this
-module, although they have varying prevalences in practice.
+Erlang module, although they have varying prevalences in practice.
 
 * Version 1 is used for time-based UUIDs. Apart from the bits reserved
   in bytes 9 and 7 for variant and version, bytes 1-8 represented a
@@ -57,16 +61,9 @@ module, although they have varying prevalences in practice.
   remaining parts held the relevant hash values determined from a
   name.
 
-UUIDs defined for name spaces include
-
-dns (fqdn)	6ba7b810-9dad-11d1-80b4-00c04fd430c8
-url		6ba7b811-9dad-11d1-80b4-00c04fd430c8
-oid		6ba7b812-9dad-11d1-80b4-00c04fd430c8
-x500 dn (der)	6ba7b814-9dad-11d1-80b4-00c04fd430c8
-
-The standard describes usage of version 3 only in the context of
-specified name spaces, although the spaces could perhaps be omitted in
-the creation method.
+  The standard describes usage of version 3 only in the context of
+  specified name spaces, although the spaces could perhaps be omitted in
+  the creation method.
 
 * Version 4 is used for pseudo-random UUIDs. Apart from bits reserved
   in bytes 9 and 7 for variant and version, the remaining bytes are
@@ -78,13 +75,20 @@ the creation method.
 * Version 0 and versions 6-15 are not yet defined, so UUIDs claiming
   to be variant 1, but one of these versions, are invalid.
 
+UUIDs defined for name spaces include
+
+* DNS (FQDN)		6ba7b810-9dad-11d1-80b4-00c04fd430c8
+* URL			6ba7b811-9dad-11d1-80b4-00c04fd430c8
+* OID			6ba7b812-9dad-11d1-80b4-00c04fd430c8
+* X.500 DN (DER)	6ba7b814-9dad-11d1-80b4-00c04fd430c8
+
 Variant 2
 ---------
 
 Variant 2, represented by the topmost three bits of byte 9 having
 values 110, is reserved for Microsoft. Apart from three bits
 expressing the variant, there are presumably 125 bits available for
-Microsoft to define. The author of this module has no knowledge of any
+Microsoft to define. The author of this Erlang module has no knowledge of any
 internal meaning within variant 2 UUIDs. This module does not attempt
 to handle variant 2 UUIDs.
 
@@ -94,4 +98,4 @@ Variant 3
 Varient 3, represented by the topmost three bits of byte 9 having
 values 111, is reserved for future definition. The usage of the
 remaining 125 bits is unspecified, resulting in currently invalid
-UUIDs. This module does not attempt to handle variant 3 UUIDs.
+UUIDs. This Erlang module does not attempt to handle variant 3 UUIDs.
