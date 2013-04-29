@@ -89,33 +89,33 @@ from_string([${, A1, A2, A3, A4, A5, A6, A7, A8,
              $-, B1, B2, B3, B4, $-, C1, C2, C3, C4,
              $-, D1, D2, D3, D4, $-, E1, E2, E3, E4,
              E5, E6, E7, E8, E9, E10, E11, E12, $}]) ->
-    list_to_integer([A1, A2, A3, A4, A5, A6, A7, A8,
-                     B1, B2, B3, B4, C1, C2, C3, C4,
-                     D1, D2, D3, D4, E1, E2, E3, E4,
-                     E5, E6, E7, E8, E9, E10, E11, E12], 16);
+    erlang:list_to_integer([A1, A2, A3, A4, A5, A6, A7, A8,
+                            B1, B2, B3, B4, C1, C2, C3, C4,
+                            D1, D2, D3, D4, E1, E2, E3, E4,
+                            E5, E6, E7, E8, E9, E10, E11, E12], 16);
 from_string([A1, A2, A3, A4, A5, A6, A7, A8,
              $-, B1, B2, B3, B4, $-, C1, C2, C3, C4,
              $-, D1, D2, D3, D4, $-, E1, E2, E3, E4,
              E5, E6, E7, E8, E9, E10, E11, E12]) ->
-    list_to_integer([A1, A2, A3, A4, A5, A6, A7, A8,
-                     B1, B2, B3, B4, C1, C2, C3, C4,
-                     D1, D2, D3, D4, E1, E2, E3, E4,
-                     E5, E6, E7, E8, E9, E10, E11, E12], 16);
+    erlang:list_to_integer([A1, A2, A3, A4, A5, A6, A7, A8,
+                            B1, B2, B3, B4, C1, C2, C3, C4,
+                            D1, D2, D3, D4, E1, E2, E3, E4,
+                            E5, E6, E7, E8, E9, E10, E11, E12], 16);
 from_string([A1, A2, A3, A4, A5, A6, A7, A8,
              B1, B2, B3, B4, C1, C2, C3, C4,
              D1, D2, D3, D4, E1, E2, E3, E4,
              E5, E6, E7, E8, E9, E10, E11, E12]) ->
-    list_to_integer([A1, A2, A3, A4, A5, A6, A7, A8,
-                     B1, B2, B3, B4, C1, C2, C3, C4,
-                     D1, D2, D3, D4, E1, E2, E3, E4,
-                     E5, E6, E7, E8, E9, E10, E11, E12], 16);
+    erlang:list_to_integer([A1, A2, A3, A4, A5, A6, A7, A8,
+                            B1, B2, B3, B4, C1, C2, C3, C4,
+                            D1, D2, D3, D4, E1, E2, E3, E4,
+                            E5, E6, E7, E8, E9, E10, E11, E12], 16);
 from_string([A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12,
              $., B1, B2, $., C1, C2, $., D1, D2, $., E1, E2,
              $., F1, F2, $., G1, G2, $., H1, H2, $., I1, I2]) ->
-    A = list_to_integer([A1, A2, A3, A4, A5, A6, A7, A8,
-                         A9, A10, A11, A12], 16),
-    B = list_to_integer([B1, B2, C1, C2, D1, D2, E1, E2,
-                         F1, F2, G1, G2, H1, H2, I1, I2], 16),
+    A = erlang:list_to_integer([A1, A2, A3, A4, A5, A6, A7, A8,
+                                A9, A10, A11, A12], 16),
+    B = erlang:list_to_integer([B1, B2, C1, C2, D1, D2, E1, E2,
+                                F1, F2, G1, G2, H1, H2, I1, I2], 16),
     <<Val:128>> = <<A:48, 0:16, B:64>>,
     Val.
 

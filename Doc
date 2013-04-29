@@ -1,0 +1,55 @@
+RFC-4122, ITU-T recommendation X.667 (09/2004), ISO/IEC 9834-8:2005
+
+http://www.itu.int/ITU-T/asn1/uuid.html
+
+A sample uuid can be expressed as either
+urn:uuid:f81d4fae-7dec-11d0-a765-00a0c91e6bf6 or
+ASN.1 OID 2.25.329800735698586629295641978511506172918
+
+Known UUIDs for name spaces include
+
+dns (fqdn)	6ba7b810-9dad-11d1-80b4-00c04fd430c8
+url		6ba7b811-9dad-11d1-80b4-00c04fd430c8
+oid		6ba7b812-9dad-11d1-80b4-00c04fd430c8
+x500 dn (der)	6ba7b814-9dad-11d1-80b4-00c04fd430c8
+
+NCS had uuidgen and/or uuid_gen programs.
+
+According to
+http://bitsavers.trailing-edge.com/bits/Apollo/SR10.4/019594-001.CRTG_STD_SFW_1.ct.gz
+NCS 1.5.1 and earlier uuid had fewer significant bits, and a different
+format.
+
+333a2276-0000-0000-0d00-00809c000000
+34dc239ec000.0d.00.00.7c.5f.00.00.00
+
+http://ps-2.kev009.com/tl/techlib/manuals/adoclib/cmds/aixcmds5/uuidgen.htm
+includes example uuid 458487b55160.02.c0.64.02.03.00.00.00, equivalent
+to new format NCS 458487b5-5160-0000-02c0-640203000000, documented in
+Pascal source as a 48-bit number being time bigendian, possibly
+followed by 2 reserved bytes of zeros, unexpressed, followed by 1 byte
+expressing the (protocol?) family, and 7 bytes representing the
+host. All components are separated by periods.
+
+Domain/OS SR10.1 and before had NCS before 1.5.1.
+
+https://www.dcerpc.org/trac/browser/dcerpc/uuid/uuid.c says
+
+TimeHi 32 ) no of 4us ticks since 1980-01-01 (not 1970)
+TimeLo 16 )
+Reserved 16 ) zero (not expressed in old format)
+Family 8 (only used 0 .. 13) - (2 = ip, 13 = data link)
+Node 56 (depending on family)
+
+Because Family <= 13, high bit is zero, and distinguishes these from
+#1 (RFC4122) and #2 (Microsoft).
+
+Family 13 (dds) looks like node is 00 | nnnnnn 000000.
+Family 2 is presumably (ip).
+Not sure if anything else was used.
+
+NCS 1.5.1 used #0 (new) UUIDs, same content as old ones, but new syntax,
+and used MAC for nore.
+
+[Ref lost, but #2 Microsoft change Node to random or something else,
+rather than reveal MAC address.]
