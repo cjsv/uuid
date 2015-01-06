@@ -1,7 +1,7 @@
 %% -*- mode: erlang; indent-tabs-mode: nil -*-
 -module(uuid_server).
 -author('Christopher Vance <cjsv@abacorix.com>').
--copyright('Copyright (c) 2012 Christopher Vance').
+-copyright('Copyright (c) 2012,2015 Christopher Vance').
 
 -behaviour(gen_server).
 -export([init/1,handle_call/3,handle_cast/2]). % gen_server required
@@ -210,22 +210,22 @@ dce_sec_uuid(group, Group, State) ->
 md5_uuid(Name, Space) ->
     {ok, Space1} = space_uuid(Space),
     Space2 = big_endian(Space1),
-    <<TLo:32, TMid:16, VTHi:16, RSeq:16, Node:48>> = big_endian(crypto:md5([Space2, Name])),
+    <<TLo:32, TMid:16, VTHi:16, RSeq:16, Node:48>> = big_endian(crypto:hash(md5, [Space2, Name])),
     {ok, assemble(3, TLo, TMid, VTHi, RSeq, Node)}.
 -spec sha1_uuid(string(), dns | url | oid | x500dn) -> {ok, integer()}.
 sha1_uuid(Name, Space) ->
     {ok, Space1} = space_uuid(Space),
-    <<TLo:32, TMid:16, VTHi:16, RSeq:16, Node:48>> = big_endian(crypto:md5([Space1, Name])),
+    <<TLo:32, TMid:16, VTHi:16, RSeq:16, Node:48>> = big_endian(crypto:hash(md5, [Space1, Name])),
     {ok, assemble(5, TLo, TMid, VTHi, RSeq, Node)}.
 %% The RFC describes the use of names only with namespaces, but we
 %% also allow generation of UUIDs without specififying a namespace.
 -spec md5_uuid(string()) -> {ok, integer()}.
 md5_uuid(Name) ->
-    <<TLo:32, TMid:16, VTHi:16, RSeq:16, Node:48>> = crypto:md5([Name]),
+    <<TLo:32, TMid:16, VTHi:16, RSeq:16, Node:48>> = crypto:hash(md5, [Name]),
     {ok, assemble(3, TLo, TMid, VTHi, RSeq, Node)}.
 -spec sha1_uuid(string()) -> {ok, integer()}.
 sha1_uuid(Name) ->
-    <<TLo:32, TMid:16, VTHi:16, RSeq:16, Node:48>> = crypto:md5([Name]),
+    <<TLo:32, TMid:16, VTHi:16, RSeq:16, Node:48>> = crypto:hash(md5, [Name]),
     {ok, assemble(5, TLo, TMid, VTHi, RSeq, Node)}.
 
 %% For random UUIDs, we do not use time or MAC, so we don't actually

@@ -9,6 +9,9 @@ components, etc. A server is used to ensure monotonicity of timestamps
 within clock sequence, for variants and versions where time is
 relevant.
 
+This version has been updated to account for the deprecation of the
+crypto:md5 function.
+
 Each UUID belongs to a variant, distinguished by the most significant
 bits in the byte 9 of the UUID (counting from 1). Not every pattern of
 128 bits is a valid UUID.
