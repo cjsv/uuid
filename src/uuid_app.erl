@@ -1,7 +1,7 @@
 %% -*- mode: erlang; indent-tabs-mode: nil -*-
+% Copyright (c) 2012-2015 Christopher Vance.
 -module(uuid_app).
--author('Christopher Vance <cjsv@abacorix.com>').
--copyright('Copyright (c) 2012 Christopher Vance.').
+-author('Christopher Vance.').
 
 -behaviour(application).
 -export([start/2,stop/1]). % application required

@@ -1,59 +1,61 @@
 %% -*- mode: erlang; indent-tabs-mode: nil -*-
+% Copyright (c) 2012-2015 Christopher Vance.
+% Copyright (c) 2012-2013 Into Science Pty Ltd.
 -module(uuid).
--author('Christopher Vance <cjsv@abacorix.com>').
--copyright('Copyright (c) 2012 Christopher Vance').
+-author('Christopher Vance').
 
 -export([time/0,dce_security/2,md5_hash/2,md5_hash/1,random/0,
          sha1_hash/2,sha1_hash/1,ncs/0]).
--export([split/1,match/3,to_string/1,to_string_ncs/1,from_string/1]).
+-export([split/1,match/3,to_string/1,to_string_ncs/1,from_string/1,age/1]).
 
 %%% uuid client api
 
 %% Create a time-based UUID.
--spec time() -> binary().
+-spec time() -> integer().
 time() ->
     gen_server:call(uuid_server, {time}).
 
 %% Create a DCE security UUID for the specified user or group.
--spec dce_security(user | group, integer()) -> binary().
-dce_security(user, User) ->
+-spec dce_security(user | group, integer()) -> integer().
+dce_security(user, User) when is_integer(User) ->
     gen_server:call(uuid_server, {dce_security, user, User});
-dce_security(group, Group) ->
+dce_security(group, Group) when is_integer(Group) ->
     gen_server:call(uuid_server, {dce_security, group, Group}).
 
-%% Create namespace UUID within a namespace.
--spec md5_hash(string(), dns | url | oid | x500dn) -> binary().
-md5_hash(Name, Space) ->
+%% Create an MD5 or SHA1 namespace UUID within a namespace.
+-spec md5_hash(string(), dns | url | oid | x500dn) -> integer().
+md5_hash(Name, Space) when is_atom(Space) ->
     gen_server:call(uuid_server, {md5_hash, Name, Space}).
--spec sha1_hash(string(), dns | url | oid | x500dn) -> binary().
-sha1_hash(Name, Space) ->
+-spec sha1_hash(string(), dns | url | oid | x500dn) -> integer().
+sha1_hash(Name, Space) when is_atom(Space) ->
     gen_server:call(uuid_server, {sha1_hash, Name, Space}).
-%% Create namespace UUID without a namespace.
--spec md5_hash(string()) -> binary().
+
+%% Create an MD5 or SHA1 namespace UUID without a namespace.
+-spec md5_hash(string()) -> integer().
 md5_hash(Name) ->
     gen_server:call(uuid_server, {md5_hash, Name}).
--spec sha1_hash(string()) -> binary().
+-spec sha1_hash(string()) -> integer().
 sha1_hash(Name) ->
     gen_server:call(uuid_server, {sha1_hash, Name}).
 
-%% Create a random UUID.
--spec random() -> binary().
+%% Create a pseudo-random UUID.
+-spec random() -> integer().
 random() ->
     gen_server:call(uuid_server, {random}).
 
-%% Create a NCS format UUID (precedes the standards used above). Obsolete.
--spec ncs() -> binary().
+%% Create an NCS format UUID (precedes the standards used above). Obsolete.
+-spec ncs() -> integer().
 ncs() ->
     gen_server:call(uuid_server, {ncs}).
 
 %% Split a UUID into components.
--spec split(binary()) -> list().
-split(UUID) ->
+-spec split(integer()) -> list().
+split(UUID) when is_integer(UUID) ->
     gen_server:call(uuid_server, {split, UUID}).
 
 %% Is the UUID a namespace UUID for the name and namespace.
--spec match(binary(), string(), dns | url | oid | x500dn) -> true | false.
-match(UUID, Name, Space) ->
+-spec match(integer(), string(), dns | url | oid | x500dn) -> true | false.
+match(UUID, Name, Space) when is_integer(UUID) ->
     gen_server:call(uuid_server, {match, UUID, Name, Space}).
 
 %% Convert a UUID into the usual string format.
@@ -83,7 +85,7 @@ to_string_ncs(<<UUID:128>>) ->
 to_string_ncs(UUID) when is_integer(UUID) ->
     to_string_ncs(<<UUID:128>>).
 
-%% Convert string format to UUID.
+%% Convert a string format UUID to internal (integer) form.
 -spec from_string(string()) -> integer().
 from_string([${, A1, A2, A3, A4, A5, A6, A7, A8,
              $-, B1, B2, B3, B4, $-, C1, C2, C3, C4,
@@ -118,6 +120,11 @@ from_string([A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12,
                                 F1, F2, G1, G2, H1, H2, I1, I2], 16),
     <<Val:128>> = <<A:48, 0:16, B:64>>,
     Val.
+
+%% Determine the age (in seconds) of a time-based UUID.
+-spec age(integer()) -> integer() | undefined.
+age(UUID) when is_integer(UUID) ->
+    gen_server:call(uuid_server, {age, UUID}).
 
 %%% functions internal to uuid implementation
 

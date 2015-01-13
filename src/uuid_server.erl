@@ -1,7 +1,8 @@
 %% -*- mode: erlang; indent-tabs-mode: nil -*-
+% Copyright (c) 2012-2015 Christopher Vance.
+% Copyright (c) 2012-2013 Into Science Pty Ltd.
 -module(uuid_server).
--author('Christopher Vance <cjsv@abacorix.com>').
--copyright('Copyright (c) 2012,2015 Christopher Vance').
+-author('Christopher Vance').
 
 -behaviour(gen_server).
 -export([init/1,handle_call/3,handle_cast/2]). % gen_server required
@@ -76,6 +77,9 @@ handle_call({split, UUID}, _From, State) ->
     {reply, Reply, State};
 handle_call({match, UUID, Name, Space}, _From, State) ->
     {ok, Reply} = match_uuid(UUID, Name, Space),
+    {reply, Reply, State};
+handle_call({age, UUID}, _From, State) ->
+    {ok, Reply} = age_uuid(UUID),
     {reply, Reply, State};
 handle_call(_Request, _From, State) ->
     {noreply, State}.
@@ -181,7 +185,7 @@ time_uuid(State) ->
 %% (slightly less that 10 minutes) to represent the POSIX user or
 %% group, and the bottom 8 bits of clk_seq to indicate which of these
 %% it is. For these UUIDs, we use both time and MAC, so need to use
-%% and update State.  (NCS on Apollo Domain/OS included host information
+%% and update State. (NCS on Apollo Domain/OS included host information
 %% in its user IDs, so 32 bits was not a new idea.)
 -spec dce_sec_uuid(user | group, integer(), #state{}) ->
                           {reply, integer(), #state{}}.
@@ -209,23 +213,29 @@ dce_sec_uuid(group, Group, State) ->
 -spec md5_uuid(string(), dns | url | oid | x500dn) -> {ok, integer()}.
 md5_uuid(Name, Space) ->
     {ok, Space1} = space_uuid(Space),
-    Space2 = big_endian(Space1),
-    <<TLo:32, TMid:16, VTHi:16, RSeq:16, Node:48>> = big_endian(crypto:hash(md5, [Space2, Name])),
+    %Space2 = big_endian(Space1),
+    Ctx = crypto:hash_init(md5),
+    Ctx1 = crypto:hash_update(Ctx, <<Space1:128>>),
+    Ctx2 = crypto:hash_update(Ctx1, Name),
+    Hash = crypto:hash_final(Ctx2),
+    <<TLo:32, TMid:16, VTHi:16, RSeq:16, Node:48, _/binary>>
+        = Hash, %big_endian(Hash),
     {ok, assemble(3, TLo, TMid, VTHi, RSeq, Node)}.
 -spec sha1_uuid(string(), dns | url | oid | x500dn) -> {ok, integer()}.
 sha1_uuid(Name, Space) ->
     {ok, Space1} = space_uuid(Space),
-    <<TLo:32, TMid:16, VTHi:16, RSeq:16, Node:48>> = big_endian(crypto:hash(md5, [Space1, Name])),
+    <<TLo:32, TMid:16, VTHi:16, RSeq:16, Node:48>> = big_endian(crypto:hash(sha, [<<Space1:128>>, Name])),
     {ok, assemble(5, TLo, TMid, VTHi, RSeq, Node)}.
 %% The RFC describes the use of names only with namespaces, but we
 %% also allow generation of UUIDs without specififying a namespace.
 -spec md5_uuid(string()) -> {ok, integer()}.
-md5_uuid(Name) ->
+md5_uuid(Name) when is_list(Name) ->
     <<TLo:32, TMid:16, VTHi:16, RSeq:16, Node:48>> = crypto:hash(md5, [Name]),
     {ok, assemble(3, TLo, TMid, VTHi, RSeq, Node)}.
 -spec sha1_uuid(string()) -> {ok, integer()}.
-sha1_uuid(Name) ->
-    <<TLo:32, TMid:16, VTHi:16, RSeq:16, Node:48>> = crypto:hash(md5, [Name]),
+sha1_uuid(Name) when is_list(Name) ->
+    <<TLo:32, TMid:16, VTHi:16, RSeq:16, Node:48, _/binary>> =
+        crypto:hash(sha, [Name]),
     {ok, assemble(5, TLo, TMid, VTHi, RSeq, Node)}.
 
 %% For random UUIDs, we do not use time or MAC, so we don't actually
@@ -243,9 +253,8 @@ random_uuid() ->
 ncs_uuid(State) ->
     {State1, New} = new_time_ncs(State),
     Node = State#state.node,
-    {reply,
-     <<New:48, 0:16, 13:8, 0:8, Node:48>>,
-     State1}.
+    <<Result:128>> = <<New:48, 0:16, 13:8, 0:8, Node:48>>,
+    {reply, Result, State1}.
 
 %% Splitting depends on the variant and version.
 %% Where Time was theoretically derived from a clock, indicate what that was.
@@ -324,12 +333,35 @@ split_uuid(<<UUID:128>>) ->
 split_uuid(UUID) when is_integer(UUID) ->
     split_uuid(<<UUID:128>>).
 
+-spec age_uuid(integer()) -> {ok, integer()} | undefined.
+age_uuid(UUID) ->
+    Split = split_uuid(UUID),
+    Num =
+        case Split of
+            [{standard, time}, {time, Str} | _] ->
+                erlang:list_to_integer(Str, 16);
+            [{standard, dce, _}, _, {time, Str} | _] ->
+                erlang:list_to_integer(Str, 16);
+            _ ->
+                undefined
+        end,
+    case Num of
+        undefined ->
+            undefined;
+        Num when is_integer(Num) ->
+            Tick70 = Num - ?OFFSET1582,
+            Sec70 = Tick70 div 10000000,
+            {M, S, _} = now(),
+            Result = M * 1000000 + S - Sec70,
+            {ok, Result}
+    end.
+
 %% Does a presented UUID match the specified name and namespace.
--spec match_uuid(binary() | integer(), string(), dns | url | oid | x500dn) ->
+-spec match_uuid(integer(), string(), dns | url | oid | x500dn) ->
                         {ok, true | false}.
-match_uuid(<<UUID:128>>, Name, Space) ->
-    {ok, <<MD5:128>>} = md5_uuid(Name, Space),
-    {ok, <<SHA1:128>>} = sha1_uuid(Name, Space),
+match_uuid(UUID, Name, Space) when is_integer(UUID) ->
+    {ok, MD5} = md5_uuid(Name, Space),
+    {ok, SHA1} = sha1_uuid(Name, Space),
     case UUID == MD5 of
         true ->
             {ok, true};
@@ -340,23 +372,21 @@ match_uuid(<<UUID:128>>, Name, Space) ->
                 _ ->
                     {ok, false}
             end
-    end;
-match_uuid(UUID, Name, Space) when is_integer(UUID) ->
-    match_uuid(<<UUID:128>>, Name, Space).
+    end.
 
 %% These four namespace UUIDs are specified in
 %% Internet RFC-4122
 %% ITU-T recommendation X.667 (09/2004)
 %% ISO/IEC 9834-8:2005
--spec space_uuid(dns | url | oid | x500dn) -> {ok, binary()}.
+-spec space_uuid(dns | url | oid | x500dn) -> {ok, integer()}.
 space_uuid(dns) ->
-    {ok, <<16#6ba7b8109dad11d180b400c04fd430c8:128>>};
+    {ok, 16#6ba7b8109dad11d180b400c04fd430c8};
 space_uuid(url) ->
-    {ok, <<16#6ba7b8119dad11d180b400c04fd430c8:128>>};
+    {ok, 16#6ba7b8119dad11d180b400c04fd430c8};
 space_uuid(oid) ->
-    {ok, <<16#6ba7b8129dad11d180b400c04fd430c8:128>>};
+    {ok, 16#6ba7b8129dad11d180b400c04fd430c8};
 space_uuid(x500dn) ->
-    {ok, <<16#6ba7b8149dad11d180b400c04fd430c8:128>>}.
+    {ok, 16#6ba7b8149dad11d180b400c04fd430c8}.
 
 %% Return a value slightly larger than a specified value of now().
 -spec inc_now({integer(), 0..999999, 0..999999}) ->
@@ -407,12 +437,14 @@ new_time_ncs(State) ->
     {State1, New}.
 
 %% Given a number of parts, assemble a UUID.
--spec assemble(1 .. 5, integer(), integer(), integer(), integer(), integer()) ->
-                      binary().
+-spec assemble(1 .. 5, integer(), integer(), integer(), integer(), integer())
+              ->
+                      integer().
 assemble(Ver, TLo, TMid, VTHi, RSeq, Node) ->
     <<_:4, THi:12>> = <<VTHi:16>>,
     <<_:2, Seq:14>> = <<RSeq:16>>,
-    <<TLo:32, TMid:16, Ver:4, THi:12, 2:2, Seq:14, Node:48>>.
+    <<Result:128>> = <<TLo:32, TMid:16, Ver:4, THi:12, 2:2, Seq:14, Node:48>>,
+    Result.
 
 %% Get the Ethernet (or similar) MAC address from a network interface
 %% on the host, or use a randomly generated (multicast) alternative.
@@ -448,10 +480,11 @@ random_mac() ->
 %% Using MD5 and SHA1 with namespace UUIDs requires presenting some
 %% UUID component in network (machine-independent) order. This code
 %% enables interoperation with the reference code presented in the
-%% standards.
+%% standards. As a UUID is 128 bits, excess trailing bits are ignored.
 -spec big_endian(binary() | integer()) -> binary().
-big_endian(<<UUID:128>>) ->
-    <<TLo:32/native, TMid:16/native, VTHi:16/native, RSeq:16, Node:48>> = <<UUID:128>>,
+big_endian(UUID) when is_binary(UUID), size(UUID) >= 16 ->
+    <<TLo:32/native, TMid:16/native, VTHi:16/native, RSeq:16, Node:48,
+      _/binary>> = UUID,
     <<TLo:32/big, TMid:16/big, VTHi:16/big, RSeq:16, Node:48>>;
 big_endian(UUID) when is_integer(UUID) ->
     big_endian(<<UUID:128>>).
@@ -475,7 +508,7 @@ h(8, Val) ->
 %% decode it.
 -spec dce_time(binary() | integer()) -> string() | error.
 dce_time(<<Val:60>>) ->
-    Tick70 = Val - 16#1b21dd213814000,          % adjust to 1970
+    Tick70 = Val - ?OFFSET1582,                 % adjust to 1970
     Sec70 = Tick70 div 10000000,                % 100 nanoseconds per tick
     {M, S, _} = now(),
     case Sec70 =< M * 1000000 + S + 600 of
@@ -547,11 +580,22 @@ time_test() ->
     State = init_state(),
     {reply, T1, State1} = time_uuid(State),
     {reply, T2, _} = time_uuid(State1),
-    Same = T1 == T2,
-    error_logger:info_msg("Time ~p~nTime ~p~nTime ~p~nTime ~p~nTime ~p~n",
+    Diff = T1 /= T2,
+    error_logger:info_msg("Time ~p~nTime ~p~nTime ~p~nTime ~p~nTime different ~p~n",
                           [uuid:to_string(T1), split_uuid(T1),
-                           uuid:to_string(T2), split_uuid(T2), Same]),
-    Same = false.
+                           uuid:to_string(T2), split_uuid(T2), Diff]),
+    Diff == true.
+
+age_test() ->
+    Given = 16#252ab4107e7a11e4a8685ba5382ac590,
+    {ok, Age} = age_uuid(Given),
+    {Days, {Hr, Min, Sec}} = calendar:seconds_to_daystime(Age),
+    AgeString = lists:flatten(io_lib:format("~bd ~2.10.0b:~2.10.0b:~2.10.0b",
+                                            [Days, Hr, Min, Sec])),
+    error_logger:info_msg(
+      "Age ~p~nAge ~p~nAge ~p~nAge ~p~n",
+      [uuid:to_string(Given), split_uuid(Given), Age, AgeString]),
+    ok.
 
 dce_test() ->
     State = init_state(),
@@ -565,24 +609,36 @@ dce_test() ->
 md5_test() ->
     Domain = "www.widgets.com",
     {ok, Have} = md5_uuid(Domain, dns),
-    {ok, Have0} = md5_uuid(Domain),
-    Expect = <<16#e902893a9d223c7ea7b8d6e313b71d9f:128>>,
+    % erratum 1352 (RFC-4122)
+    Expect = 16#3d813cbb47fb32ba91df831e1593ac29,
     {ok, Match} = match_uuid(Expect, Domain, dns),
-    error_logger:info_msg("MD5 ~p~nMD5 ~p~nMD5 ~p~nMD5 ~p~n",
-                          [split_uuid(Have), uuid:to_string(Have),
-                           uuid:to_string(Expect), Match]),
-    error_logger:info_msg("MD5 ~p~nMD5 ~p~n",
-                          [split_uuid(Have0), uuid:to_string(Have0)]),
+    error_logger:info_msg(
+      "MD5 Domain ~p~nMD5 ~p~nMD5 ~p~nMD5 ~p~nMD5 match ~p~n",
+      [Domain, split_uuid(Have), uuid:to_string(Have),
+       uuid:to_string(Expect), Match]),
+    Match == true.
+
+second_md5_test() ->
+    Domain = "www.example.com",
+    {ok, Have} = md5_uuid(Domain, dns),
+    % erratum 3476 (RFC-4122)
+    Expect = 16#5df418813aed351588a72f4a814cf09e,
+    {ok, Match} = match_uuid(Expect, Domain, dns),
+    error_logger:info_msg(
+      "MD5 Domain ~p~nMD5 ~p~nMD5 ~p~nMD5 ~p~nMD5 match ~p~n",
+      [Domain, split_uuid(Have), uuid:to_string(Have),
+       uuid:to_string(Expect), Match]),
     Match == true.
 
 sha1_test() ->
-    Domain = "www.widgets.com",
-    {ok, Have} = sha1_uuid(Domain, dns),
-    {ok, Have0} = sha1_uuid(Domain),
-    error_logger:info_msg("SHA1 ~p~nSHA1 ~p~n",
-                          [split_uuid(Have), uuid:to_string(Have)]),
-    error_logger:info_msg("SHA1 ~p~nSHA1 ~p~n",
-                          [split_uuid(Have0), uuid:to_string(Have0)]),
+    Domain = "www.example.com",
+    {ok, Have} = sha1_uuid(Domain),
+    {ok, Have1} = sha1_uuid(Domain, dns),
+    error_logger:info_msg(
+      "SHA1 ~p~nSHA1 ~p~nSHA1 Domain ~p~nSHA1 ~p~nSHA1 ~p~n"
+      "SHA1 No value to check against~n",
+      [split_uuid(Have), uuid:to_string(Have),
+       Domain, split_uuid(Have1), uuid:to_string(Have1)]),
     ok.
 
 random_test() ->

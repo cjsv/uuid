@@ -2,7 +2,7 @@
 {application,
  uuid,
  [{description, "RFC-4122 UUID"},
-  {vsn, "2.0"},
+  {vsn, "3.0"},
   {registered, []},
   {applications, [kernel, stdlib, crypto]},
   {modules, []},
