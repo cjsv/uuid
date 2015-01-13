@@ -258,7 +258,7 @@ ncs_uuid(State) ->
 
 %% Splitting depends on the variant and version.
 %% Where Time was theoretically derived from a clock, indicate what that was.
--spec split_uuid(binary() | integer()) -> list().
+-spec split_uuid(binary() | integer()) -> {ok, list()}.
 split_uuid(<<UUID:128>>) ->
     <<TLo:32, TMid:16, VTHi:16, RSeq:16, Node:48>> = <<UUID:128>>,
     <<Bits64:64, _:2, Bits62:62>> = <<UUID:128>>,
@@ -272,70 +272,79 @@ split_uuid(<<UUID:128>>) ->
     <<Time3:60>> = <<THi:12, TMid:16, TLo:32>>,
     <<Time3HM:60>> = <<THi:12, TMid:16, 0:32>>,
     <<Time3FF:60>> = <<THi:12, TMid:16, 16#ffffffff:32>>,
-    case Var0 of
-        0 ->
-            [ncs,
-             {time, h(6, Time6)},
-             {reserved, VTHi},
-             {created, ncs_time(Time6)},
-             {node, h(1, Fam), h(7, Node7)}];
-        1 ->
-            case Var1 of
-                0 ->
-                    case Ver of
-                        1 ->
-                            [{standard, time},
-                             {time, h(8, Time3)},
-                             {created, dce_time(Time3)},
-                             {seq, h(2, Seq)},
-                             {node, h(6, Node)}];
-                        2 ->
-                            case SLo of
-                                0 ->
-                                    [{standard, dce, user},
-                                     {user, h(4, TLo)},
-                                     {time, h(8, Time3HM)},
-                                     {created, dce_time(Time3HM), dce_time(Time3FF)},
-                                     {seq, h(1, SHi)},
-                                     {node, h(6, Node)}];
-                                1 ->
-                                    [{standard, dce, group},
-                                     {group, h(4, TLo)},
-                                     {time, h(8, Time3HM)},
-                                     {created, dce_time(Time3HM), dce_time(Time3FF)},
-                                     {seq, h(1, SHi)},
-                                     {node, h(6, Node)}];
-                                _ ->
-                                    [{standard, dce, unknown, SLo, TLo},
-                                     {time, h(8, Time3HM)},
-                                     {created, dce_time(Time3HM), dce_time(Time3FF)},
-                                     {seq, h(1, SHi)},
-                                     {node, h(6, Node)}]
-                            end;
-                        3 ->
-                            [{standard, md5, h(6, Time6), h(2, THi), h(8, Bits62)}];
-                        4 ->
-                            [{standard, random, h(6, Time6), h(2, THi), h(8, Bits62)}];
-                        5 ->
-                            [{standard, sha, h(6, Time6), h(2, THi), h(8, Bits62)}];
-                        _ ->
-                            [{standard, ver, Ver, unknown, h(6, Time6), h(2, THi), h(8, Bits62)}]
-                    end;
-                1 ->
-                    case Var2 of
-                        0 ->
-                            [{microsoft, h(8, Bits64), h(8, Bits61)}];
-                        1 ->
-                            [{future, h(8, Bits64), h(8, Bits61)}]
-                    end
-            end
-    end;
+    Result =
+        case Var0 of
+            0 ->
+                [ncs,
+                 {time, h(6, Time6)},
+                 {reserved, VTHi},
+                 {created, ncs_time(Time6)},
+                 {node, h(1, Fam), h(7, Node7)}];
+            1 ->
+                case Var1 of
+                    0 ->
+                        case Ver of
+                            1 ->
+                                [{standard, time},
+                                 {time, h(8, Time3)},
+                                 {created, dce_time(Time3)},
+                                 {seq, h(2, Seq)},
+                                 {node, h(6, Node)}];
+                            2 ->
+                                case SLo of
+                                    0 ->
+                                        [{standard, dce, user},
+                                         {user, h(4, TLo)},
+                                         {time, h(8, Time3HM)},
+                                         {created, dce_time(Time3HM),
+                                          dce_time(Time3FF)},
+                                         {seq, h(1, SHi)},
+                                         {node, h(6, Node)}];
+                                    1 ->
+                                        [{standard, dce, group},
+                                         {group, h(4, TLo)},
+                                         {time, h(8, Time3HM)},
+                                         {created, dce_time(Time3HM),
+                                          dce_time(Time3FF)},
+                                         {seq, h(1, SHi)},
+                                         {node, h(6, Node)}];
+                                    _ ->
+                                        [{standard, dce, unknown, SLo, TLo},
+                                         {time, h(8, Time3HM)},
+                                         {created, dce_time(Time3HM),
+                                          dce_time(Time3FF)},
+                                         {seq, h(1, SHi)},
+                                         {node, h(6, Node)}]
+                                end;
+                            3 ->
+                                [{standard, md5, h(6, Time6), h(2, THi),
+                                  h(8, Bits62)}];
+                            4 ->
+                                [{standard, random, h(6, Time6), h(2, THi),
+                                  h(8, Bits62)}];
+                            5 ->
+                                [{standard, sha, h(6, Time6), h(2, THi),
+                                  h(8, Bits62)}];
+                            _ ->
+                                [{standard, ver, Ver, unknown, h(6, Time6),
+                                  h(2, THi), h(8, Bits62)}]
+                        end;
+                    1 ->
+                        case Var2 of
+                            0 ->
+                                [{microsoft, h(8, Bits64), h(8, Bits61)}];
+                            1 ->
+                                [{future, h(8, Bits64), h(8, Bits61)}]
+                        end
+                end
+        end,
+    {ok, Result};
 split_uuid(UUID) when is_integer(UUID) ->
     split_uuid(<<UUID:128>>).
 
 -spec age_uuid(integer()) -> {ok, integer()} | undefined.
 age_uuid(UUID) ->
-    Split = split_uuid(UUID),
+    {ok, Split} = split_uuid(UUID),
     Num =
         case Split of
             [{standard, time}, {time, Str} | _] ->
@@ -587,7 +596,8 @@ time_test() ->
     Diff == true.
 
 age_test() ->
-    Given = 16#252ab4107e7a11e4a8685ba5382ac590,
+    <<Given:128>> = <<16#252ab410:32, 16#7e7a:16, 16#11e4:16, 16#a868:16,
+                      16#5ba5382ac590:48>>,
     {ok, Age} = age_uuid(Given),
     {Days, {Hr, Min, Sec}} = calendar:seconds_to_daystime(Age),
     AgeString = lists:flatten(io_lib:format("~bd ~2.10.0b:~2.10.0b:~2.10.0b",
