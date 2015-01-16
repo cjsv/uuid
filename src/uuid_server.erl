@@ -417,12 +417,13 @@ inc_now({M, S, U}) ->
 -spec new_time_when(#state{}) -> #state{}.
 new_time_when(State) ->
     Now = now(),
-    case Now > State#state.time_when of
-        true ->
-            Now1 = Now;
-        _ ->
-            Now1 = inc_now(State#state.time_when)
-    end,
+    Now1 =
+        case Now > State#state.time_when of
+            true ->
+                Now;
+            _ ->
+                inc_now(State#state.time_when)
+        end,
     State#state{time_when=Now1}.
 
 %% Given State, generate a newer RFC-4122 UUID timestamp, and update
