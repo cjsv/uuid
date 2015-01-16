@@ -49,7 +49,7 @@ Family 2 is presumably (ip).
 Not sure if anything else was used.
 
 NCS 1.5.1 used #0 (new) UUIDs, same content as old ones, but new syntax,
-and used MAC for nore.
+and used MAC for node.
 
 [Ref lost, but #2 Microsoft change Node to random or something else,
 rather than reveal MAC address.]
